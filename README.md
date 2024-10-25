@@ -46,3 +46,46 @@ def clean_data(data, colname):
         tweet[i] = [j for j in tweet[i] if (j != '' and j not in english_punctuations)]
     return [' '.join(t) for t in tweet]
 ```
+
+## LSTM Model
+``` python
+# Encode the labels
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+# Tokenize the text data
+tokenizer = Tokenizer(num_words=10000, oov_token='<OOV>')
+tokenizer.fit_on_texts(X)
+X_sequences = tokenizer.texts_to_sequences(X)
+
+# Pad sequences to ensure uniform input size
+max_length = 150
+X_padded = pad_sequences(X_sequences, maxlen=max_length, padding='post', truncating='post')
+
+# Split the data into training and testing sets, none of the new tweets are included
+X_train, X_test, y_train, y_test = train_test_split(X_padded[0:len(t)], y_encoded[0:len(t)], test_size=0.2, random_state=42)
+
+# Define the model
+embedding_dim = 128
+model = Sequential([
+    Embedding(input_dim=10000, output_dim=embedding_dim, input_length=max_length),
+    Bidirectional(LSTM(64, return_sequences=True)),
+    Dropout(0.5),
+    Bidirectional(LSTM(64, return_sequences=True)),
+    Dropout(0.5),
+    layers.GlobalAveragePooling1D(),
+    Dense(1, activation='sigmoid')  # Use 'softmax' for multi-class classification
+])
+
+# Compile the model
+model.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.005), metrics=['accuracy'])
+
+# Print the model summary
+model.summary()
+
+# Set up early stopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+# Train the model
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2, callbacks=[early_stopping])
+```
